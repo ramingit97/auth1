@@ -19,7 +19,7 @@ export const ormConfig: DataSourceOptions = {
   // Run migrations automatically,
   // you can disable this if you prefer running migration manually.
   migrationsRun: true,
-  logging: true,
+  logging: false,
 
   // allow both start:prod and start:dev to use migrations
   // __dirname is either dist or src folder, meaning either

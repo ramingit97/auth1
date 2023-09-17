@@ -11,8 +11,11 @@ export class UserEntity {
     @PrimaryGeneratedColumn()
     id:number;
 
-    @Column()
+    @Column({unique:true})
     email:string;
+
+    @Column()
+    password:string;
 
 
     @Column("enum",{enum:Gender})

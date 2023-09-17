@@ -3,7 +3,6 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from
 @Catch()
 export class AllExceptionFilter<T> implements ExceptionFilter {
   catch(exception: T, host: ArgumentsHost) {
-    console.log("exxxxxxxx",exception)
     const context = host.switchToHttp();
     const request = context.getRequest();
     const response = context.getResponse();
