@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Gender, UserEntity } from './user.entity';
+import { UserEntity } from './user.entity';
 import { Repository } from 'typeorm';
 import { UserCreateDto } from './dto/user-create.dto';
 import { compare, genSaltSync,hashSync } from 'bcryptjs';
@@ -8,51 +8,51 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TokenService } from '@src/tokens/token.service';
 import { IToken } from '@src/tokens/token.interface';
+import { Gender, IAuthResult, UserRole } from './user.interface';
+import { UserRepository } from './repo/user.repository';
 
 @Injectable()
 export class UserService {
 
     constructor(
-        @InjectRepository(UserEntity) private userRepo:Repository<UserEntity>,
-        private jwtService:JwtService,
-        private config:ConfigService,
-        private tokenService:TokenService,
-        ){}
+            private readonly userRepo:UserRepository,
+            private jwtService:JwtService,
+            private config:ConfigService,
+            private tokenService:TokenService,
+    ){}
 
 
-    async register(user:UserCreateDto):Promise<UserEntity>{
-        
-        //check if already user with email
-
-        let candidate = await this.find(user.login);
+    async register({email,name,password}:UserCreateDto){
+        // check if already user with email
+        let candidate = await this.userRepo.findUser(email);
         if(candidate){
             throw new HttpException({message:"User with this email already exists"},HttpStatus.FOUND)
         }
-        
-        const salt = genSaltSync(10);
-        const saveUser:Omit<UserEntity,"id"> = {
-            email:user.login,
-            password:hashSync(user.password,salt),
-            gender:Gender.Male
-        }
+       
+        const newUserEntity = await new UserEntity({
+            email,
+            name,
+            gender:Gender.Male,
+            role:UserRole.User
+        }).setPassword(password);
 
-        let result = this.userRepo.save(saveUser);
-        console.log(result);
-        return result;
+
+        const newUser = await this.userRepo.createUser(newUserEntity);
+        let tokens:IToken = await this.tokenService.generateTokens({email,id:newUser.id})
+        await this.tokenService.saveTokens({
+            user_id:newUser.id,
+            refresh_token:tokens.refresh_token
+        })
+        return {
+            user:newUser,
+            access_token:tokens.access_token,
+            refresh_token:tokens.refresh_token
+        };
     }
 
 
     async login(email:string,password:string){
-        const user = await this.find(email);
-        if(!user){
-            throw new NotFoundException({message:"User with email not found"})
-        }
-
-        const passwordCompare = await compare(password,user.password);
-        if(!passwordCompare){
-            throw new HttpException({message:"Password uncorrect"},403)
-        }
-
+        const user = await this.validate(email,password);
         let tokens:IToken = await this.tokenService.generateTokens({email,id:user.id})
         await this.tokenService.saveTokens({
             user_id:user.id,
@@ -61,16 +61,20 @@ export class UserService {
         return tokens;
     }
 
+    async validate(email:string,password:string){
+        const user = await this.userRepo.findUser(email);
+        if(!user){
+            throw new NotFoundException({message:"User with email not found"})
+        }
 
+        const userEntity = new UserEntity(user);
+        const isCorrectPassword = await userEntity.validatePassword(password);
+        if(!isCorrectPassword){
+            throw new NotFoundException({message:"Email or password not valid"})
+        }
+        return userEntity;
+    }
     
-    async findAll(){
-        const result =  await this.userRepo.find();
-        return result;
-    }
-
-    async find(email:string):Promise<UserEntity>{
-        return this.userRepo.findOne({where:{email}})
-    }
 
     async refresh_token(refreshToken:string){
         const token = await this.tokenService.findToken(refreshToken);
@@ -78,7 +82,7 @@ export class UserService {
         if(!token){
             throw new UnauthorizedException()
         }
-        const user = await this.userRepo.findOne({where:{id: token.user_id}});
+        const user = await this.userRepo.findById(token.user_id);
         if(!user){
             throw new UnauthorizedException()
         }
