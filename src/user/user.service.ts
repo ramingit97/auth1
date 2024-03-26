@@ -10,6 +10,7 @@ import { TokenService } from '@src/tokens/token.service';
 import { IToken } from '@src/tokens/token.interface';
 import { Gender, IAuthResult, UserRole } from './user.interface';
 import { UserRepository } from './repo/user.repository';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class UserService {
@@ -26,7 +27,7 @@ export class UserService {
         // check if already user with email
         let candidate = await this.userRepo.findUser(email);
         if(candidate){
-            throw new HttpException({message:"User with this email already exists"},HttpStatus.FOUND)
+            throw new RpcException({message:"User with this email already exists",status:HttpStatus.FOUND})
         }
        
         const newUserEntity = await new UserEntity({
@@ -67,7 +68,8 @@ export class UserService {
             throw new NotFoundException({message:"User with email not found"})
         }
 
-        const userEntity = new UserEntity(user);
+        const userEntity = await new UserEntity(user);
+        await userEntity.setHashPassword(user.password);
         const isCorrectPassword = await userEntity.validatePassword(password);
         if(!isCorrectPassword){
             throw new NotFoundException({message:"Email or password not valid"})
@@ -90,8 +92,17 @@ export class UserService {
         const tokens = await this.tokenService.refreshToken({email:user.email,id:user.id},refreshToken);
         await this.tokenService.saveTokens({
             user_id:user.id,
-            refresh_token:tokens.refresh_token
+            ...tokens
         })
         return tokens;
+    }
+
+
+    async findAll(){
+        return await this.userRepo.findAll();
+    }
+
+    async findUserByEmail(email:string){
+        return await this.userRepo.findUser(email);
     }
 }

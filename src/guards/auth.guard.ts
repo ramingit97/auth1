@@ -22,6 +22,7 @@ export class AuthGuard implements CanActivate {
     context: ExecutionContext,
   ):   Promise<boolean>  {
     const request = context.switchToHttp().getRequest();
+    console.log(request,"request");
     const refresh_token = request.cookies.refresh_token;
     const token = this.extractTokenFromHeader(request);
     
@@ -35,19 +36,25 @@ export class AuthGuard implements CanActivate {
         secret:this.config.get<string>("JWT_REFRESH_SECRET")
       })
 
+      console.log('11111111111111111');
+      
+
       let findRefreshToken = await this.tokenService.findToken(refresh_token)
       if(!findRefreshToken){
-        throw new UnauthorizedException()
+        throw new UnauthorizedException({message:"refresh_token_expired"})
       }
      
       const payload = await this.jwtService.verifyAsync(token,{
         secret:this.config.get<string>("JWT_SECRET")
       })
 
+      console.log('22222222222222');
+
       request.user = payload;
     }
     catch(e){
-      throw new UnauthorizedException({message:"Session expired"})
+      console.log("1212121212121212",e);
+      throw new UnauthorizedException({message:"access_token_expired"})
     }
     return true;
 
