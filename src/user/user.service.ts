@@ -105,4 +105,8 @@ export class UserService {
     async findUserByEmail(email:string){
         return await this.userRepo.findUser(email);
     }
+
+    async findUserById(id:number){
+        return await this.userRepo.findById(id);
+    }
 }

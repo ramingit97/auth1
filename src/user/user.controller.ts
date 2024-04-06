@@ -28,7 +28,7 @@ export class UserController {
     @MessagePattern("register")
     async register(@Payload() userData:UserCreateDto){
 
-        console.log('userData',userData);
+        console.log('userData userService',userData);
         
         let result = await this.userService.register(userData);
         // await this.setRefreshCookie(result.refresh_token,res);
@@ -142,6 +142,21 @@ export class UserController {
     async createPhoto(@Payload() payload){
         console.log("pppppppppppppppppp121212",payload);
         return "ramin"
+    }
+
+    @MessagePattern("get.user.info")
+    async getUserInfo({id}:{id:number}){
+        console.log("get.sdsds.sdsds get.sdsds.info",id);
+        let user = await this.userService.findUserById(id);
+        console.log("user111",user);
+        return JSON.stringify(user);
+        // return {
+        //     headers: {
+        //       "realm0:":1
+        //     },
+        //     key: "heroId",
+        //     value: user
+        //   }
     }
 
     // @MessagePattern("register2")
